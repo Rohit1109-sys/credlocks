@@ -1,6 +1,5 @@
 import os
 import cv2
-import threading
 import hashlib
 import random
 import string
@@ -13,17 +12,18 @@ from zxcvbn import zxcvbn
 
 # ---------------- Paths ----------------
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-VIDEO_PATH = os.path.join(BASE_DIR, "videos", "creadlocklogo.mp4")
+VIDEOS_DIR = os.path.join(BASE_DIR, "videos")
 IMAGES_DIR = os.path.join(BASE_DIR, "images")
+VIDEO_PATH = os.path.join(VIDEOS_DIR, "creadlocklogo.mp4")
 
+# ---------------- Utility Functions ----------------
 def resource_path(*paths):
     return os.path.join(BASE_DIR, *paths)
 
-# ---------------- Utilities ----------------
 def check_hibp(password):
     sha1pass = hashlib.sha1(password.encode('utf-8')).hexdigest().upper()
     prefix, suffix = sha1pass[:5], sha1pass[5:]
-    url = f'https://api.pwnedpasswords.com/range/{prefix}'
+    url = f"https://api.pwnedpasswords.com/range/{prefix}"
     try:
         resp = requests.get(url, timeout=5)
         if resp.status_code != 200:
@@ -33,7 +33,7 @@ def check_hibp(password):
             if h == suffix:
                 return int(count)
         return 0
-    except requests.exceptions.RequestException:
+    except:
         return -2
 
 def check_password_strength(password):
@@ -56,7 +56,7 @@ def generate_password(length=16):
     return "".join(password)
 
 def create_gradient(width, height, start_color, end_color):
-    gradient = Image.new("RGB", (width, height), color=0)
+    gradient = Image.new("RGB", (width, height))
     draw = ImageDraw.Draw(gradient)
     for i in range(height):
         ratio = i / height
@@ -87,56 +87,74 @@ def play_splash(video_path):
     cap.release()
     cv2.destroyAllWindows()
 
-# ---------------- App ----------------
+# ---------------- Main App ----------------
 class App(ctk.CTk):
     def __init__(self):
         super().__init__()
         self.withdraw()
-        self.overrideredirect(True)
         self.screens = {}
-        self.data = {"wifi":[],"passkeys":[],"codes":[]}
-        self.deleted = {"usernames":[],"codes":[]}
+        self.data = {"wifi": [], "passkeys": [], "codes": []}
+        self.deleted = {"usernames": [], "codes": []}
         self.protocol("WM_DELETE_WINDOW", self.close_app)
-        threading.Thread(target=self.show_splash, daemon=True).start()
+        self.after(100, self.start_splash)
 
-    def show_splash(self):
+    def start_splash(self):
         play_splash(VIDEO_PATH)
         self.deiconify()
-        self.open_main_screen()
+        self.show_login()
 
-    def maximize_window(self, window):
+    # ---------------- Login ----------------
+    def show_login(self):
+        login_win = ctk.CTkToplevel(self)
+        login_win.title("Login")
+        login_win.geometry("600x400")
+        login_win.configure(fg_color="white")
+        login_win.grab_set()
+        ctk.CTkLabel(login_win, text="Enter Master Password", font=("Arial", 18)).pack(pady=20)
+        password_entry = ctk.CTkEntry(login_win, width=200, show="*")
+        password_entry.pack(pady=10)
+
+        def check_password():
+            if password_entry.get() == "A1@bcdef":
+                login_win.destroy()
+                self.open_main_screen()
+            else:
+                messagebox.showerror("Error", "Incorrect Password")
+
+        ctk.CTkButton(login_win, text="Login", command=check_password).pack(pady=10)
+
+    # ---------------- Main Screen ----------------
+    def open_main_screen(self):
+        window = ctk.CTkToplevel(self)
         try:
             window.state("zoomed")
         except:
             window.attributes("-fullscreen", True)
+        window.title("Credlock - Main")
+        window.configure(fg_color="white")
+        self.screens["main"] = window
 
-    # ---------------- Main Screen ----------------
-    def open_main_screen(self):
-        main_window = ctk.CTkToplevel(self)
-        self.maximize_window(main_window)
-        main_window.configure(fg_color="white")
-        main_window.title("Credlock - Main")
-        self.screens["main"] = main_window
-
-        # Gradient bar
-        bar_width = main_window.winfo_screenwidth()
-        bar_height = 120
-        gradient_img = create_gradient(bar_width, bar_height, (0,90,200),(0,150,255))
-        gradient_ctk = ctk.CTkImage(light_image=gradient_img,size=(bar_width,bar_height))
-        top_bar = ctk.CTkLabel(main_window,image=gradient_ctk,text="")
+        # Gradient Bar
+        width, height = window.winfo_screenwidth(), 120
+        gradient_img = create_gradient(width, height, (0,90,200),(0,150,255))
+        gradient_ctk = ctk.CTkImage(light_image=gradient_img, size=(width,height))
+        top_bar = ctk.CTkLabel(window, image=gradient_ctk, text="")
         top_bar.image = gradient_ctk
         top_bar.pack(fill="x", side="top")
 
-        # Demo welcome label
-        ctk.CTkLabel(main_window,text="Welcome to Credlock!",font=("Arial",24,"bold")).pack(pady=200)
+        # Buttons Frame
+        btn_frame = ctk.CTkFrame(window, fg_color="white")
+        btn_frame.pack(pady=50)
+        for i, name in enumerate(["Passkeys","Wifi","Codes","Deleted"]):
+            ctk.CTkButton(btn_frame, text=name, width=200, height=80).grid(row=0, column=i, padx=20)
 
     def close_app(self):
         for win in self.screens.values():
             win.destroy()
         self.destroy()
 
-# --------------------- Run ---------------------
 if __name__ == "__main__":
-    os.makedirs(os.path.join(BASE_DIR,"videos"),exist_ok=True)
+    os.makedirs(VIDEOS_DIR, exist_ok=True)
+    os.makedirs(IMAGES_DIR, exist_ok=True)
     app = App()
     app.mainloop()
