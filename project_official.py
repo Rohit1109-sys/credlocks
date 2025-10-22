@@ -68,6 +68,7 @@ def create_gradient(width, height, start_color, end_color):
 
 # ---------------- Splash Video ----------------
 def play_splash(video_path):
+    """Plays the splash video before opening main UI."""
     if not os.path.exists(video_path):
         print(f"Video not found: {video_path}")
         return
@@ -81,7 +82,7 @@ def play_splash(video_path):
         ret, frame = cap.read()
         if not ret:
             break
-        cv2.imshow("Splash Screen", frame)
+        cv2.imshow("Credlock Splash", frame)
         if cv2.waitKey(delay) & 0xFF == ord('q'):
             break
     cap.release()
@@ -96,9 +97,9 @@ class App(ctk.CTk):
         self.data = {"wifi": [], "passkeys": [], "codes": []}
         self.deleted = {"usernames": [], "codes": []}
         self.protocol("WM_DELETE_WINDOW", self.close_app)
-        self.after(100, self.start_splash)
+        self.after(100, self.start_app)
 
-    def start_splash(self):
+    def start_app(self):
         play_splash(VIDEO_PATH)
         self.deiconify()
         self.show_login()
@@ -110,6 +111,7 @@ class App(ctk.CTk):
         login_win.geometry("600x400")
         login_win.configure(fg_color="white")
         login_win.grab_set()
+
         ctk.CTkLabel(login_win, text="Enter Master Password", font=("Arial", 18)).pack(pady=20)
         password_entry = ctk.CTkEntry(login_win, width=200, show="*")
         password_entry.pack(pady=10)
@@ -142,11 +144,14 @@ class App(ctk.CTk):
         top_bar.image = gradient_ctk
         top_bar.pack(fill="x", side="top")
 
-        # Buttons Frame
+        # Main buttons: Passkeys, Wifi, Codes, Deleted
         btn_frame = ctk.CTkFrame(window, fg_color="white")
         btn_frame.pack(pady=50)
         for i, name in enumerate(["Passkeys","Wifi","Codes","Deleted"]):
             ctk.CTkButton(btn_frame, text=name, width=200, height=80).grid(row=0, column=i, padx=20)
+
+        # Placeholder label
+        ctk.CTkLabel(window, text="Credlock Main UI Loaded!", font=("Arial", 24)).pack(pady=200)
 
     def close_app(self):
         for win in self.screens.values():
